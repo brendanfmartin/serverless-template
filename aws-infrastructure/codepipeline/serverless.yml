@@ -1,0 +1,100 @@
+#serverless deploy --stage $DEPLOYMENT_STAGE --sourceBranch master
+service: ${self:custom.project}-pipeline
+provider:
+  name: aws
+  runtime: nodejs12.x
+  stage: ${opt:stage, 'dev'}
+  region: ${file(env/${self:provider.stage}.yml):region}
+  deploymentBucket:
+    name: cf-templates-5rrcz2248gen-${self:provider.region}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:*
+        - cloudwatch:*
+      Resource: '*'
+  # as per: https://rn-jira.atlassian.net/wiki/spaces/RT/pages/1033797765/AWS+Resource+Tagging
+  tags:
+    Env: ${opt:stage, 'dev'}
+    Environment: ${opt:stage, 'dev'}
+    Service: ${self:custom.project}
+    PlatformVersion: v3
+  stackTags:
+    Env: ${opt:stage, 'dev'}
+    Environment: ${opt:stage, 'dev'}
+    Service: ${self:custom.project}
+    PlatformVersion: v3
+
+custom:
+  project: GITHUB PROJECT NAME
+  vpcId: ${file(env/${self:provider.stage}.yml):vpcId}
+  privateSubnets: ${file(env/${self:provider.stage}.yml):privateSubnets}
+  securityGroups: ${file(env/${self:provider.stage}.yml):securityGroups}
+
+resources:
+  Resources:
+    CodePipeline:
+      Type: AWS::CodePipeline::Pipeline
+      Properties:
+        ArtifactStore:
+          Location: "rn-software-packages-${self:provider.region}"
+          Type: S3
+        Name: ${self:custom.project}-${self:provider.stage}
+        RestartExecutionOnUpdate: false
+        RoleArn: !ImportValue SlsPipelineCommon-${self:provider.stage}-PipelineRoleArn
+        Stages:
+          - Name: Source
+            Actions:
+              - Name: RnSlsSourceAction
+                ActionTypeId:
+                  Category: Source
+                  Owner: ThirdParty
+                  Version: 1
+                  Provider: GitHub
+                OutputArtifacts:
+                  - Name: ${self:custom.project}-source
+                Configuration:
+                  Owner: brendanfmartin
+                  Repo: ${self:custom.project}
+                  PollForSourceChanges: false
+                  Branch: ${opt:sourceBranch, 'master'}
+                  OAuthToken: ${ssm:/rn/devops/github-token~true}
+          - Name: DeployRnSls
+            Actions:
+              - Name: DeployRnSls
+                InputArtifacts:
+                  - Name: ${self:custom.project}-source
+                ActionTypeId:
+                  Category: Build
+                  Owner: AWS
+                  Version: 1
+                  Provider: CodeBuild
+                Configuration:
+                  ProjectName:
+                    Ref: DeployRnSlsProject
+    DeployRnSlsProject:
+      Type: AWS::CodeBuild::Project
+      Properties:
+        Name: deploy-${self:custom.project}-${self:provider.stage}-code-build
+        Description: Build and deploy ${self:custom.project} in ${self:provider.stage}
+        ServiceRole: !ImportValue SlsPipelineCommon-${self:provider.stage}-CodeBuildRoleName
+        BadgeEnabled: false
+        TimeoutInMinutes: 10
+        Source:
+          Type: CODEPIPELINE
+          BuildSpec: "buildspec.yml"
+        VpcConfig:
+          VpcId: ${self:custom.vpcId}
+          Subnets: ${self:custom.privateSubnets}
+          SecurityGroupIds: ${self:custom.securityGroups}
+        Environment:
+          ComputeType: BUILD_GENERAL1_SMALL
+          PrivilegedMode: true
+          Type: LINUX_CONTAINER
+          Image: "aws/codebuild/standard:4.0"
+          EnvironmentVariables:
+            - Name: DEPLOYMENT_STAGE
+              Value: ${self:provider.stage}
+        Artifacts:
+          EncryptionDisabled: true
+          Type: CODEPIPELINE

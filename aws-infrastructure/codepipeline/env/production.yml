@@ -1,0 +1,8 @@
+region: us-east-1
+vpcId: vpc-f37a1a97
+privateSubnets:
+  - subnet-4756bc1f
+  - subnet-5f0bd829
+  - subnet-c10cebeb
+securityGroups:
+  - sg-0892e473

@@ -1,0 +1,4 @@
+region: us-west-2
+vpcId: vpc-ba9a0fde
+privateSubnets:
+securityGroups:

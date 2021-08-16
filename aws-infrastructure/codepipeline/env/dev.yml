@@ -1,0 +1,8 @@
+region: us-east-2
+vpcId: vpc-59fc1731
+privateSubnets:
+  - subnet-9c0ff3f4
+  - subnet-ca192ab1
+  - subnet-f31261be
+securityGroups:
+  - sg-d3e6ebbb

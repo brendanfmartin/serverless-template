@@ -1,0 +1,15 @@
+hello:
+  handler: handlers/hello.hello
+  environment:
+    RN_TEST: 'testing an env variable'
+  events:
+    - http:
+        path: hello
+        method: get
+
+version:
+  handler: handlers/version.http
+  events:
+    - http:
+        path: version
+        method: get

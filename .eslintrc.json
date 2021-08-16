@@ -1,0 +1,14 @@
+{
+  "env": {
+    "mocha": true,
+    "node": true
+  },
+  "ignorePatterns": [
+    "coverage/",
+    "node_modules/",
+    "nyc_output/",
+    ".serverless/",
+    "configs"
+  ],
+  "extends": ["airbnb-base", "plugin:prettier/recommended"]
+}
